@@ -1,4 +1,4 @@
-module taos
+module github.com/haoxinqin/taos
 
 go 1.18
 

@@ -1,4 +1,4 @@
-package util
+package taos
 
 import (
 	"database/sql"
