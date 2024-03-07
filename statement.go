@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -54,7 +55,6 @@ func (stmt *statement) BuildCondition(query interface{}, args ...interface{}) {
 					// 如果参数中有切片，转成字符串
 					for _, arg := range args {
 						if reflect.TypeOf(arg).Kind() == reflect.Slice {
-
 							larg := reflect.ValueOf(arg).Len()
 							if larg > 0 {
 								var varstr strings.Builder
@@ -233,27 +233,30 @@ func (stmt *statement) BuildSelect() (sql string, err error) {
 	if lwhere > 0 {
 		sql_builder.WriteString(" where ")
 		for k, v := range stmt.Where {
-			sql_builder.WriteString("(")
+			if k > 0 {
+				sql_builder.WriteString("(")
+			}
 			sql_builder.WriteString(v)
-			sql_builder.WriteString(")")
+			if k > 0 {
+				sql_builder.WriteString(")")
+			}
 			if k < lwhere-1 {
 				sql_builder.WriteString(" and ")
 			}
 		}
 	}
-	if stmt.Order != "" {
-		sql_builder.WriteString(" order by ")
-		sql_builder.WriteString(stmt.Order)
-	}
 	if stmt.Group != "" {
 		sql_builder.WriteString(" Group by ")
 		sql_builder.WriteString(stmt.Group)
+	}
+	if stmt.Order != "" {
+		sql_builder.WriteString(" order by ")
+		sql_builder.WriteString(stmt.Order)
 	}
 	if stmt.Limit > 0 && stmt.Page > 0 {
 		sql_builder.WriteString(fmt.Sprintf(" limit %d, %d ", (stmt.Page-1)*stmt.Limit, stmt.Limit))
 	}
 	sql = sql_builder.String()
-	// log.Println("sql=====", sql)
 	return
 }
 
@@ -277,9 +280,13 @@ func (stmt *statement) BuildCount() (sql string, err error) {
 	if lwhere > 0 {
 		sql_builder.WriteString(" where ")
 		for k, v := range stmt.Where {
-			sql_builder.WriteString("(")
+			if k > 0 {
+				sql_builder.WriteString("(")
+			}
 			sql_builder.WriteString(v)
-			sql_builder.WriteString(")")
+			if k > 0 {
+				sql_builder.WriteString(")")
+			}
 			if k < lwhere-1 {
 				sql_builder.WriteString(" and ")
 			}
@@ -397,6 +404,7 @@ func (stmt *statement) assignRows(rows *sql.Rows, dest interface{}) {
 	li := make(map[string]interface{})
 	// 获取结构体字段个数
 	numColumns := len(columns)
+	reg, _ := regexp.Compile(`(first\()|(\))|(last\()`)
 	// 遍历查询结果
 	for rows.Next() {
 		// 创建一个字段值的切片
@@ -414,7 +422,11 @@ func (stmt *statement) assignRows(rows *sql.Rows, dest interface{}) {
 			return
 		}
 		for k, value := range values {
-			data[columns[k]] = value
+			key := reg.ReplaceAllString(columns[k], "")
+			data[key] = value
+		}
+		if len(li) == 0 || len(list) == 0 {
+			return
 		}
 		li = data
 		list = append(list, data)
